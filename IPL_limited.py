@@ -120,7 +120,9 @@ def parse_matches(html: str) -> list[dict]:
                        "Opening", "Countdown", "Available", "Notify", "Book tickets"]
 
     for tag in soup.find_all(string=lambda t: t and (
-        "Sale is live" in t or "Coming soon" in t
+        "Sale is live" in t or "Coming soon" in t or
+        "Tickets available in" in t or "Notify me" in t or
+        "Sale starts" in t or "Opens in" in t
     )):
         card = tag.find_parent()
 
@@ -172,19 +174,23 @@ def parse_matches(html: str) -> list[dict]:
         #                       but if District ever puts it in static HTML, we catch it)
         if "Sale is live" in card_text:
             btn_text = "Sale is live"
+        elif "Tickets available in" in card_text or "Notify me" in card_text:
+            # Timer/countdown state detected in static HTML!
+            btn_text = "Tickets available in"
+            for line in lines:
+                if "Tickets available in" in line or "Notify me" in line:
+                    btn_text = line
+                    break
         else:
-            # Default to "Coming soon", but check if any other status text exists
             btn_text = "Coming soon"
             for line in lines:
                 line_lower = line.lower()
-                if line_lower == "coming soon":
-                    btn_text = line
-                    break
-                elif any(kw in line_lower for kw in [
+                if any(kw in line_lower for kw in [
                     "opens in", "sale starts", "opening soon", "countdown",
-                    "notify me", "register", "available soon", "hours", "minutes"
+                    "notify me", "register", "available soon", "hours", "minutes",
+                    "tickets available"
                 ]):
-                    btn_text = line  # Something new appeared!
+                    btn_text = line
                     break
 
         # Booking URL
@@ -285,9 +291,6 @@ def check_once(state: dict) -> tuple[dict, bool]:
     log.info(f"Parsed {len(matches)} total matches. Filtering for watch list...")
 
     for match in matches:
-        if not is_watch_match(match["teams"]):
-            continue
-
         mid      = match["id"]
         btn_text = match["btn_text"]
         prev     = state.get(mid)
@@ -326,13 +329,13 @@ def main():
         f"📅 {w['date']} — {w['teams']}" for w in WATCH_MATCHES
     )
     send_telegram(
-        "🧪 <b>District.in Test Monitor is LIVE!</b>\n\n"
-        "Watching <b>5 matches</b> before RCB on Apr 27:\n\n"
-        f"{match_list}\n\n"
+        "🏏 <b>District.in IPL Monitor is LIVE!</b>\n\n"
+        f"📡 Watching ALL matches on District.in\n"
         f"⏱ Checking every <b>{CHECK_INTERVAL_SECONDS // 60} minutes</b>\n\n"
-        "You'll get an alert the moment any button text changes from "
-        "<b>\"Coming soon\"</b> to anything else 🔔\n\n"
-        "<i>This is a dry run to validate the monitoring logic before RCB matches.</i>"
+        "Alerts for ANY button change:\n"
+        "🔔 <b>Coming soon → Tickets available in</b> (timer!)\"\n"
+        "🎟️ <b>Tickets available in → Sale is live</b>\n\n"
+        "You won\'t miss a thing! 💪"
     )
 
     interval = CHECK_INTERVAL_SECONDS
