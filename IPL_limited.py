@@ -146,8 +146,15 @@ def parse_matches(html: str) -> list[dict]:
 
         # Extract fields
         teams_str = venue_str = date_str = time_str = ""
+        MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        DAYS   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+
+        # Collect all date-related tokens and join them (e.g. "Sat", "25", "Apr" → "Sat 25 Apr")
+        date_parts = []
         for line in lines:
-            if " vs " in line and not teams_str:
+            if line in DAYS or line.isdigit() or line in MONTHS:
+                date_parts.append(line)
+            elif " vs " in line and not teams_str:
                 teams_str = line
             elif any(v in line for v in [
                 "Stadium","Ground","Cricket","Oval","Eden","Wankhede","Chepauk",
@@ -157,10 +164,9 @@ def parse_matches(html: str) -> list[dict]:
                 venue_str = line
             elif ("AM" in line or "PM" in line) and not time_str:
                 time_str = line
-            elif any(m in line for m in [
-                "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"
-            ]) and not date_str:
-                date_str = line
+
+        if date_parts:
+            date_str = " ".join(date_parts)
 
         if not teams_str:
             continue
